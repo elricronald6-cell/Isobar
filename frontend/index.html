@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Isobar — recurring subscriptions on BOT Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<style>
+/* ============================================================================
+   SWISS STYLE (International Typographic) — one grotesque family, a rigid
+   12-column grid, flush-left ragged-right setting, hairline rules, one red.
+   No ornament, no shadows, no radii, no icons. The schedule is a timetable.
+   ========================================================================== */
+:root{
+  --paper:#f2f2f0;
+  --ink:#111111;
+  --grey:#6e6e6e;
+  --grey-2:#a8a8a6;
+  --rule:#111111;
+  --hair:#d2d2cf;
+  --red:#e2231a;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'Inter',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;letter-spacing:-.005em;
+}
+.grid{max-width:1280px;margin:0 auto;padding:0 32px;
+  display:grid;grid-template-columns:repeat(12,1fr);column-gap:24px}
+@media(max-width:900px){.grid{padding:0 20px;column-gap:16px}}
+.full{grid-column:1/-1}
+h1,h2,h3{font-weight:700;margin:0;letter-spacing:-.03em}
+.caps{font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--grey)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* ---------- masthead row ---------- */
+.rule-top{height:6px;background:var(--ink)}
+header.grid{padding-top:22px;padding-bottom:24px}
+.mast{grid-column:1/8}
+@media(max-width:900px){.mast{grid-column:1/-1}}
+.mast h1{font-size:clamp(40px,6.2vw,76px);line-height:.94}
+.mast h1 em{font-style:normal;color:var(--red)}
+.mast p{margin:14px 0 0;font-size:17px;max-width:46ch;color:#2a2a2a}
+.meta{grid-column:9/13;display:flex;flex-direction:column;gap:0;align-self:end}
+@media(max-width:900px){.meta{grid-column:1/-1;margin-top:22px}}
+.metarow{display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-top:1px solid var(--hair)}
+.metarow:last-child{border-bottom:1px solid var(--hair)}
+.metarow b{font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---------- controls ---------- */
+button{
+  font-family:'Inter';font-weight:600;font-size:12.5px;letter-spacing:.02em;cursor:pointer;
+  background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:8px 15px;border-radius:0;
+  transition:.1s
+}
+button:hover:not(:disabled){background:var(--red);border-color:var(--red)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.line{background:transparent;color:var(--ink)}
+button.line:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+button.red{background:var(--red);border-color:var(--red)}
+button.sm{font-size:11.5px;padding:6px 11px}
+.bar{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding:12px 0;border-top:2px solid var(--ink);border-bottom:1px solid var(--hair)}
+.bar .sp{margin-left:auto}
+
+/* ---------- the timetable ---------- */
+.tablehead{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;
+  gap:16px;flex-wrap:wrap;margin:36px 0 10px}
+.tablehead h2{font-size:21px}
+table{grid-column:1/-1;width:100%;border-collapse:collapse}
+thead th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--grey);padding:0 12px 8px 0;border-bottom:2px solid var(--ink)}
+thead th.r{text-align:right;padding-right:0}
+tbody td{padding:16px 12px 16px 0;border-bottom:1px solid var(--hair);vertical-align:top;font-size:14px}
+tbody td.r{text-align:right;padding-right:0;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#e9e9e6}
+.pname{font-weight:600;font-size:16px;letter-spacing:-.01em}
+.psub{color:var(--grey);font-size:12px;margin-top:3px}
+.state{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;border:1px solid var(--ink)}
+.state.off{color:var(--grey);border-color:var(--grey-2)}
+.state.due{background:var(--red);border-color:var(--red);color:#fff}
+
+/* periods as a row of hairline ticks — the only graphic on the page */
+.ticks{display:flex;gap:3px;margin-top:9px}
+.ticks i{width:9px;height:17px;background:var(--grey-2);display:block}
+.ticks i.paid{background:var(--ink)}
+.ticks i.cov{background:var(--grey)}
+.ticks i.next{background:var(--red)}
+.rowacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.rowacts input{width:110px}
+
+/* ---------- the publish block, set as a grid area ---------- */
+.publish{grid-column:1/7;border-top:2px solid var(--ink);padding-top:18px;margin-top:52px}
+.notes{grid-column:8/13;border-top:2px solid var(--ink);padding-top:18px;margin-top:52px}
+@media(max-width:900px){.publish,.notes{grid-column:1/-1;margin-top:34px}}
+.publish h2,.notes h2{font-size:18px;margin-bottom:10px}
+.fieldgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:560px){.fieldgrid{grid-template-columns:1fr}}
+label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--grey);margin-bottom:5px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--ink);background:#fff;color:var(--ink);
+  font-family:'Inter';font-size:14px;border-radius:0}
+input:focus,select:focus{outline:2px solid var(--red);outline-offset:-2px}
+.notes dl{margin:0}
+.notes dt{font-weight:600;font-size:13.5px;margin-top:12px}
+.notes dd{margin:2px 0 0;color:var(--grey);font-size:13.5px}
+
+.empty{grid-column:1/-1;padding:46px 0;color:var(--grey);border-bottom:1px solid var(--hair)}
+
+#toast{position:fixed;left:0;bottom:0;transform:translateY(120%);
+  background:var(--ink);color:var(--paper);padding:13px 24px;font-size:13px;font-weight:500;
+  max-width:min(92vw,560px);transition:transform .2s;z-index:60}
+#toast.show{transform:translateY(0)}
+#toast.bad{background:var(--red)}
+
+footer.grid{padding-top:16px;padding-bottom:40px;margin-top:48px;border-top:6px solid var(--ink)}
+footer .l{grid-column:1/7;font-size:11.5px;color:var(--grey)}
+footer .r{grid-column:8/13;font-size:11.5px;color:var(--grey);text-align:right}
+@media(max-width:900px){footer .l,footer .r{grid-column:1/-1;text-align:left}}
+
+/* ===== BOT Chain ecosystem footer (KPI 5) ===== */
+footer.bc-foot{display:block;border-top:6px solid #111;background:#f2f2f0;margin-top:0}
+.bc-foot-grid{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:auto 1fr auto;
+  align-items:center;gap:24px;padding:20px 32px;border-bottom:1px solid #d2d2cf}
+@media(max-width:900px){.bc-foot-grid{padding:18px 20px}}
+@media(max-width:720px){.bc-foot-grid{grid-template-columns:1fr;gap:14px}}
+.bc-foot .bc-logo{border:1px solid #111;padding:9px 13px;background:#fff}
+.bc-foot .bc-id{font-family:'Inter',sans-serif;font-weight:700;font-size:18px;color:#111;
+  letter-spacing:-.02em}
+.bc-foot .bc-id small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:#6e6e6e;margin-top:3px}
+.bc-foot .bc-links{display:flex;gap:0;flex-wrap:wrap}
+.bc-foot .bc-links a{font-family:'Inter',sans-serif;font-weight:600;font-size:11.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:#111;text-decoration:none;
+  padding:9px 16px;border:1px solid #111;margin-left:-1px;background:#f2f2f0}
+.bc-foot .bc-links a:hover{background:#e2231a;border-color:#e2231a;color:#fff}
+.bc-foot .bc-meta{max-width:1280px;margin:0 auto;font-family:'Inter',sans-serif;font-size:10.5px;
+  font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#6e6e6e;padding:12px 32px 34px;
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+@media(max-width:900px){.bc-foot .bc-meta{padding:12px 20px 30px}}
+.bc-foot .bc-meta b{color:#111;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="rule-top"></div>
+
+<header class="grid">
+  <div class="mast">
+    <h1>Iso<em>bar</em></h1>
+    <p>Recurring subscriptions billed one period at a time — drawn only once that period has come round, and never more than one at once.</p>
+  </div>
+  <div class="meta">
+    <div class="metarow"><span class="caps">Plans</span><b id="m-plans">—</b></div>
+    <div class="metarow"><span class="caps">Subscriptions</span><b id="m-subs">—</b></div>
+    <div class="metarow"><span class="caps">Held</span><b id="m-locked">—</b></div>
+    <div class="metarow"><span class="caps">Fee per period</span><b id="m-fee">—</b></div>
+    <div class="metarow"><span class="caps">Catch-up cap</span><b>12</b></div>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="bar">
+    <span class="caps" id="b-net">network</span>
+    <span class="caps" id="b-ctr">contract</span>
+    <span class="caps" id="b-acct">not connected</span>
+    <span class="sp"></span>
+    <button class="line sm" id="btn-refresh">Refresh</button>
+    <button class="sm" id="btn-connect">Connect wallet</button>
+  </div>
+
+  <div class="tablehead">
+    <h2>Published plans</h2>
+    <span class="caps">Charging is permissionless — anyone may draw a period that is due</span>
+  </div>
+
+  <table id="table">
+    <thead>
+      <tr>
+        <th style="width:34%">Plan</th>
+        <th style="width:14%">Period</th>
+        <th class="r" style="width:13%">Price</th>
+        <th class="r" style="width:12%">Subs</th>
+        <th class="r" style="width:13%">Your balance</th>
+        <th class="r" style="width:14%">Next charge</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <section class="publish">
+    <h2>Publish a plan</h2>
+    <div class="fieldgrid">
+      <div style="grid-column:1/-1">
+        <label for="f-name">Plan name</label>
+        <input id="f-name" maxlength="56" placeholder="Station readings, monthly" />
+      </div>
+      <div>
+        <label for="f-price">Price per period — BOT</label>
+        <input id="f-price" type="number" min="0.0001" step="0.01" value="1" />
+      </div>
+      <div>
+        <label for="f-period">Period</label>
+        <select id="f-period">
+          <option value="86400">Daily</option>
+          <option value="604800">Weekly</option>
+          <option value="2592000" selected>30 days</option>
+          <option value="7776000">Quarterly</option>
+          <option value="31536000">Yearly</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:18px"><button id="btn-create">Publish</button></div>
+  </section>
+
+  <section class="notes">
+    <h2>What a merchant cannot do</h2>
+    <dl>
+      <dt>Draw ahead</dt>
+      <dd>One period, once it is due. The contract holds the clock.</dd>
+      <dt>Hold your balance</dt>
+      <dd>Withdraw it at any moment, mid-term included. The plan simply lapses at the next charge.</dd>
+      <dt>Retry forever</dt>
+      <dd>Out of balance means lapsed, not a queue of attempts against your account.</dd>
+    </dl>
+  </section>
+</div>
+
+<footer class="grid">
+  <div class="l">Isobar · recurring subscriptions · billed by the period</div>
+  <div class="r" id="f-chain">BOT Chain</div>
+</footer>
+
+
+<!-- ===== BOT Chain ecosystem footer (KPI 5) ===== -->
+<footer class="bc-foot">
+  <div class="bc-foot-grid">
+    <div class="bc-logo" aria-hidden="true"><svg viewBox="0 0 63.63 100" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:32px;display:block"><path fill="#00A67E" d="M31.67 99.95 L0 82.48 L0.11 63.74 L47.01 90.60 L47.01 73.19 L15.98 55.32 L15.95 36.49 L46.92 53.57 L47.39 36.82 L15.96 17.81 L16.26 0 L63.06 27.02 L62.82 46.20 L47.86 54.67 L62.85 63.00 L63.62 81.42 Z"/></svg></div>
+    <div class="bc-id">BOT Chain<small>Part of the ecosystem</small></div>
+    <div class="bc-links">
+      <a href="https://botchain.ai" target="_blank" rel="noopener noreferrer">botchain.ai</a>
+      <a id="bc-explorer" href="https://scan.botchain.ai" target="_blank" rel="noopener noreferrer">Explorer</a>
+    </div>
+  </div>
+  <div class="bc-meta">
+    <span>&copy; 2026 <b>BOT Chain</b> &mdash; EVM-compatible Layer 1</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================================
+   CONTRACT + NETWORK CONFIG
+
+   Paste the deployed address below. Defaults to BOT Chain TESTNET.
+
+   TESTNET -> MAINNET: swap these five values together, never some of them.
+     CONTRACT_ADDRESS  -> the mainnet address
+     chainId           -> "0x2A5"
+     chainName         -> "BOT Chain"
+     rpcUrls           -> ["https://rpc.botchain.ai"]
+     blockExplorerUrls -> ["https://scan.botchain.ai"]
+   ...and set label -> "MAINNET" so the badge reads correctly.
+   ========================================================================== */
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const NETWORK = {
+  chainId: "0x3C8",                              // 968 testnet  | mainnet: "0x2A5"
+  chainIdDec: 968,                               // reference only, not shown on the page | mainnet: 677
+  chainName: "BOT Chain Testnet",                //              | mainnet: "BOT Chain"
+  rpcUrls: ["https://rpc.bohr.life"],            //              | mainnet: ["https://rpc.botchain.ai"]
+  blockExplorerUrls: ["https://scan.bohr.life"], //              | mainnet: ["https://scan.botchain.ai"]
+  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+  label: "TESTNET"                               //              | mainnet: "MAINNET"
+};
+
+const ABI = [
+  "function createPlan(string name, uint256 pricePerPeriod, uint64 periodSecs) returns (uint256)",
+  "function setPlanOpen(uint256 planId, bool open)",
+  "function subscribe(uint256 planId) payable returns (uint256)",
+  "function topUp(uint256 subId) payable",
+  "function charge(uint256 subId, uint32 maxPeriods)",
+  "function cancel(uint256 subId)",
+  "function withdrawBalance(uint256 subId)",
+  "function merchantWithdraw(uint256 planId)",
+  "function planCount() view returns (uint256)",
+  "function subCount() view returns (uint256)",
+  "function getPlan(uint256 id) view returns (tuple(address merchant,uint256 pricePerPeriod,uint64 periodSecs,bool open,uint32 subscribers,uint256 collected,string name))",
+  "function getSub(uint256 id) view returns (tuple(uint64 planId,address subscriber,uint256 balance,uint64 nextChargeAt,uint32 periodsPaid,bool active))",
+  "function periodsCovered(uint256 subId) view returns (uint256)",
+  "function dueIn(uint256 subId) view returns (uint256)",
+  "function periodsDue(uint256 subId) view returns (uint32)",
+  "function getSubsBySubscriber(address who) view returns (uint256[])",
+  "function getPlanSubs(uint256 planId) view returns (uint256[])",
+  "function getRecentPlans(uint256 limit) view returns (uint256[])",
+  "function lockedTotal() view returns (uint256)",
+  "function feeBps() view returns (uint16)"
+];
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+const $ = (id) => document.getElementById(id);
+let provider, signer, account, contract, readContract;
+let plans = [];
+
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 4400);
+}
+const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+const fmt = (wei) => {
+  const n = Number(ethers.formatEther(wei));
+  return (n >= 1 ? n.toFixed(3) : n.toFixed(4)).replace(/0+$/, "").replace(/\.$/, "");
+};
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function reason(e) {
+  const m = (e && (e.shortMessage || e.reason || e.message)) || "Transaction failed";
+  return String(m).replace(/^execution reverted:?\s*/i, "").slice(0, 150);
+}
+function period(s) {
+  s = Number(s);
+  if (s % 31536000 === 0) return "Year";
+  if (s % 2592000 === 0) return s / 2592000 === 1 ? "30 days" : s / 2592000 + "×30d";
+  if (s % 604800 === 0) return s / 604800 === 1 ? "Week" : s / 604800 + " weeks";
+  return Math.round(s / 86400) + " days";
+}
+function dueLabel(secs) {
+  secs = Number(secs);
+  if (secs === 0) return "Due now";
+  const d = Math.floor(secs / 86400);
+  if (d >= 1) return d + " d";
+  const h = Math.floor(secs / 3600);
+  if (h >= 1) return h + " h";
+  return Math.max(1, Math.floor(secs / 60)) + " m";
+}
+
+/* ---------------------------------------------------------------- wallet */
+function readOnly() {
+  try {
+    const p = new ethers.JsonRpcProvider(NETWORK.rpcUrls[0]);
+    readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+  } catch (e) { /* no read-only view */ }
+}
+async function connect() {
+  if (!window.ethereum) { toast("No wallet found. Install MetaMask.", true); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureChain();
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    $("b-acct").textContent = short(account);
+    $("btn-connect").textContent = "Connected";
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+async function ensureChain() {
+  const current = await window.ethereum.request({ method: "eth_chainId" });
+  if (current.toLowerCase() === NETWORK.chainId.toLowerCase()) return;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK.chainId }] });
+  } catch (err) {
+    if (err.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: NETWORK.chainId, chainName: NETWORK.chainName, rpcUrls: NETWORK.rpcUrls,
+          blockExplorerUrls: NETWORK.blockExplorerUrls, nativeCurrency: NETWORK.nativeCurrency
+        }]
+      });
+    } else throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ load */
+async function load() {
+  const c = contract || readContract;
+  if (!c || CONTRACT_ADDRESS === ZERO) { render(); return; }
+  try {
+    const [pc, sc, locked, fee] = await Promise.all([
+      c.planCount(), c.subCount(), c.lockedTotal(), c.feeBps()
+    ]);
+    $("m-plans").textContent = pc.toString();
+    $("m-subs").textContent = sc.toString();
+    $("m-locked").textContent = fmt(locked) + " BOT";
+    $("m-fee").textContent = (Number(fee) / 100) + "%";
+
+    const ids = await c.getRecentPlans(14n);
+    plans = [];
+    for (const id of ids) {
+      const p = await c.getPlan(id);
+      let mySub = null;
+      if (account) {
+        const subIds = await c.getSubsBySubscriber(account);
+        for (const sid of subIds) {
+          const s = await c.getSub(sid);
+          if (Number(s.planId) === Number(id)) {
+            mySub = {
+              id: sid, s,
+              covered: Number(await c.periodsCovered(sid)),
+              due: Number(await c.dueIn(sid)),
+              owing: Number(await c.periodsDue(sid))
+            };
+          }
+        }
+      }
+      plans.push({ id, p, mySub });
+    }
+    render();
+  } catch (e) {
+    toast("Could not read the contract. Check the address and network.", true);
+  }
+}
+
+/* ---------------------------------------------------------------- render */
+function ticks(paid, covered, due) {
+  const total = Math.max(10, Math.min(18, paid + covered + 2));
+  let s = "";
+  for (let i = 0; i < total; i++) {
+    const cls = i < paid ? "paid" : i === paid && due ? "next" : i < paid + covered ? "cov" : "";
+    s += '<i class="' + cls + '"></i>';
+  }
+  return '<div class="ticks">' + s + "</div>";
+}
+
+function render() {
+  const el = $("rows");
+  if (CONTRACT_ADDRESS === ZERO) {
+    el.innerHTML = '<tr><td colspan="6" class="empty">No contract address set. Deploy Isobar, then paste the address into CONTRACT_ADDRESS in this file.</td></tr>';
+    return;
+  }
+  if (!plans.length) { el.innerHTML = '<tr><td colspan="6" class="empty">No plans published yet.</td></tr>'; return; }
+
+  el.innerHTML = plans.map(({ id, p, mySub }) => {
+    const mine = account && p.merchant.toLowerCase() === account.toLowerCase();
+    let acts = "";
+    if (!mine && !mySub) {
+      acts += '<input class="fund-in" data-id="' + id + '" type="number" step="0.1" min="0" placeholder="fund BOT" />' +
+              '<button class="sm" data-sub="' + id + '">Subscribe</button>';
+    }
+    if (mySub) {
+      if (mySub.s.active) {
+        acts += '<button class="line sm" data-top="' + mySub.id + '">Top up</button>';
+        acts += '<button class="line sm" data-cancel="' + mySub.id + '">Cancel</button>';
+        if (mySub.owing > 0) acts += '<button class="red sm" data-charge="' + mySub.id + '" data-n="' + mySub.owing + '">Charge ' + mySub.owing + "</button>";
+      }
+      if (mySub.s.balance > 0n) acts += '<button class="sm" data-pull="' + mySub.id + '">Withdraw balance</button>';
+    }
+    if (mine) {
+      acts += '<button class="sm" data-collect="' + id + '">Collect ' + fmt(p.collected) + " BOT</button>";
+      acts += '<button class="line sm" data-open="' + id + '" data-to="' + (p.open ? "0" : "1") + '">' +
+        (p.open ? "Close to newcomers" : "Reopen") + "</button>";
+    }
+
+    const state = p.open ? '<span class="state">Open</span>' : '<span class="state off">Closed</span>';
+    const nextCell = mySub
+      ? (mySub.s.active
+          ? (mySub.due === 0 ? '<span class="state due">Due now</span>' : dueLabel(mySub.due))
+          : "Lapsed")
+      : "—";
+
+    return "<tr>" +
+      '<td><div class="pname">' + esc(p.name) + " " + state + "</div>" +
+        '<div class="psub">' + short(p.merchant) + "</div>" +
+        (mySub ? ticks(Number(mySub.s.periodsPaid), mySub.covered, mySub.due === 0) : "") +
+        (acts ? '<div class="rowacts">' + acts + "</div>" : "") +
+      "</td>" +
+      "<td>" + period(p.periodSecs) + "</td>" +
+      '<td class="r">' + fmt(p.pricePerPeriod) + "</td>" +
+      '<td class="r">' + p.subscribers + "</td>" +
+      '<td class="r">' + (mySub ? fmt(mySub.s.balance) : "—") + "</td>" +
+      '<td class="r">' + nextCell + "</td>" +
+    "</tr>";
+  }).join("");
+}
+
+/* --------------------------------------------------------------- actions */
+async function send(label, fn) {
+  if (!contract) { toast("Connect a wallet first.", true); return; }
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    await tx.wait();
+    toast(label + " confirmed");
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+
+$("btn-create").onclick = () => {
+  const name = $("f-name").value.trim();
+  const price = $("f-price").value;
+  if (!name) { toast("Name the plan.", true); return; }
+  if (!(Number(price) > 0)) { toast("Set a price above zero.", true); return; }
+  send("Publishing the plan", () => contract.createPlan(name, ethers.parseEther(price), $("f-period").value));
+};
+
+$("table").addEventListener("click", (ev) => {
+  const s = ev.target.closest("button[data-sub]");
+  if (s) {
+    const id = s.dataset.sub;
+    const amt = (document.querySelector('.fund-in[data-id="' + id + '"]').value || "").trim();
+    if (!(Number(amt) > 0)) { toast("Enter how much to fund.", true); return; }
+    return send("Subscribing", () => contract.subscribe(id, { value: ethers.parseEther(amt) }));
+  }
+  const t = ev.target.closest("button[data-top]");
+  if (t) {
+    const amt = prompt("Top up how much BOT?", "1");
+    if (!amt || !(Number(amt) > 0)) return;
+    return send("Topping up", () => contract.topUp(t.dataset.top, { value: ethers.parseEther(amt) }));
+  }
+  const ch = ev.target.closest("button[data-charge]");
+  if (ch) return send("Charging", () => contract.charge(ch.dataset.charge, ch.dataset.n));
+  const c = ev.target.closest("button[data-cancel]");
+  if (c) return send("Cancelling", () => contract.cancel(c.dataset.cancel));
+  const p = ev.target.closest("button[data-pull]");
+  if (p) return send("Withdrawing balance", () => contract.withdrawBalance(p.dataset.pull));
+  const col = ev.target.closest("button[data-collect]");
+  if (col) return send("Collecting", () => contract.merchantWithdraw(col.dataset.collect));
+  const o = ev.target.closest("button[data-open]");
+  if (o) return send("Updating the plan", () => contract.setPlanOpen(o.dataset.open, o.dataset.to === "1"));
+});
+
+$("btn-connect").onclick = connect;
+$("btn-refresh").onclick = load;
+
+/* ------------------------------------------------------------------ boot */
+$("b-net").textContent = NETWORK.chainName + " · " + NETWORK.label;
+$("f-chain").textContent = "BOT Chain " + NETWORK.label;
+$("b-ctr").textContent = CONTRACT_ADDRESS !== ZERO ? short(CONTRACT_ADDRESS) : "contract not set";
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+readOnly();
+load();
+
+/* ---- BOT Chain ecosystem footer: follows the NETWORK config above ---- */
+(function () {
+  var ex = document.getElementById("bc-explorer");
+  if (ex) ex.href = NETWORK.blockExplorerUrls[0];
+})();
+</script>
+</body>
+</html>
