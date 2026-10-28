@@ -259,26 +259,28 @@ footer.bc-foot{display:block;border-top:6px solid #111;background:#f2f2f0;margin
 /* ============================================================================
    CONTRACT + NETWORK CONFIG
 
-   Paste the deployed address below. Defaults to BOT Chain TESTNET.
+   LIVE ON BOT CHAIN MAINNET (chain 677). Deployed 2026-10-28.
 
-   TESTNET -> MAINNET: swap these five values together, never some of them.
-     CONTRACT_ADDRESS  -> the mainnet address
-     chainId           -> "0x2A5"
-     chainName         -> "BOT Chain"
-     rpcUrls           -> ["https://rpc.botchain.ai"]
-     blockExplorerUrls -> ["https://scan.botchain.ai"]
-   ...and set label -> "MAINNET" so the badge reads correctly.
+   To go back to testnet, move these five values together, never some of them:
+     CONTRACT_ADDRESS  -> the testnet address
+     chainId           -> "0x3C8"
+     chainName         -> "BOT Chain Testnet"
+     rpcUrls           -> ["https://rpc.bohr.life"]
+     blockExplorerUrls -> ["https://scan.bohr.life"]
+   ...and set label -> "TESTNET" so the badge reads correctly.
+
+   Changing some but not others is what produced the FlowPay BAD_DATA bug.
    ========================================================================== */
-const CONTRACT_ADDRESS = "0xb23e4c7C5c4333DBb9a039b9720446C681bd9D66";
+const CONTRACT_ADDRESS = "0x0ae057156BDFA1ee24DB6D8C43136b375132B612";
 
 const NETWORK = {
-  chainId: "0x3C8",                              // 968 testnet  | mainnet: "0x2A5"
-  chainIdDec: 968,                               // reference only, not shown on the page | mainnet: 677
-  chainName: "BOT Chain Testnet",                //              | mainnet: "BOT Chain"
-  rpcUrls: ["https://rpc.bohr.life"],            //              | mainnet: ["https://rpc.botchain.ai"]
-  blockExplorerUrls: ["https://scan.bohr.life"], //              | mainnet: ["https://scan.botchain.ai"]
+  chainId: "0x2A5",                                // 677 mainnet | testnet: "0x3C8"
+  chainIdDec: 677,                                 // reference only, not shown on the page | testnet: 968
+  chainName: "BOT Chain",                          //             | testnet: "BOT Chain Testnet"
+  rpcUrls: ["https://rpc.botchain.ai"],            //             | testnet: ["https://rpc.bohr.life"]
+  blockExplorerUrls: ["https://scan.botchain.ai"], //             | testnet: ["https://scan.bohr.life"]
   nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
-  label: "TESTNET"                               //              | mainnet: "MAINNET"
+  label: "MAINNET"                                 //             | testnet: "TESTNET"
 };
 
 const ABI = [
