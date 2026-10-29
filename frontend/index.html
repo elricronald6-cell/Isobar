@@ -357,9 +357,12 @@ function readOnly() {
 async function connect() {
   if (!window.ethereum) { toast("No wallet found. Install MetaMask.", true); return; }
   try {
-    provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    walletBusy = true;
+    setTimeout(function () { walletBusy = false; }, 8000);
+    await window.ethereum.request({ method: "eth_requestAccounts" });
     await ensureChain();
+    walletBusy = false;
+    provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     account = await signer.getAddress();
     contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
@@ -541,10 +544,24 @@ $("btn-refresh").onclick = load;
 $("b-net").textContent = NETWORK.chainName + " · " + NETWORK.label;
 $("f-chain").textContent = "BOT Chain " + NETWORK.label;
 $("b-ctr").textContent = CONTRACT_ADDRESS !== ZERO ? short(CONTRACT_ADDRESS) : "contract not set";
+var walletBusy = false;
 if (window.ethereum) {
-  window.ethereum.on("accountsChanged", () => location.reload());
-  window.ethereum.on("chainChanged", () => location.reload());
+  // Don't reload while we are mid-connect: switching the chain fires
+  // chainChanged, and reloading there is what made Connect need two clicks.
+  window.ethereum.on("accountsChanged", function () { if (!walletBusy) location.reload(); });
+  window.ethereum.on("chainChanged", function () { if (!walletBusy) location.reload(); });
 }
+// Already authorised and on the right chain? Show connected without a click.
+(async function reconnect() {
+  if (!window.ethereum) return;
+  try {
+    const accs = await window.ethereum.request({ method: "eth_accounts" });
+    if (!accs || !accs.length) return;
+    const chain = await window.ethereum.request({ method: "eth_chainId" });
+    if (String(chain).toLowerCase() !== NETWORK.chainId.toLowerCase()) return;
+    await connect();
+  } catch (e) { /* leave the Connect button as it was */ }
+})();
 readOnly();
 load();
 
